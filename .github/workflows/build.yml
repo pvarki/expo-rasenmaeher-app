@@ -42,19 +42,3 @@ jobs:
           report_paths: "**/pytest*.xml"
           detailed_summary: true
           check_name: "JUnit report (local)"
-
-  devel_shell:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: pvarki/ci@main
-        with:
-          dockerfile-target: devel_shell
-          image-tag: rasenmaeher_ui:devel_shell
-
-  production:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: pvarki/ci@main
-        with:
-          dockerfile-target: production
-          image-tag: rasenmaeher_ui:production
