@@ -1,58 +1,184 @@
-import React, { useEffect } from 'react';
-import { useStorageState } from './useStorageState';
-import * as SecureStore from 'expo-secure-store';
-import { authenticateWithMTLS } from '../mtls/authenticateWithMtls';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+  useMemo,
+} from "react";
+import * as SecureStore from "expo-secure-store";
 
-const AuthContext = React.createContext<{
-  signIn: () => void;
-  signOut: () => void;
-  session?: string | null;
+interface AuthResponse {
+  type: "mtls" | "jwt";
+  userid: string;
+  payload: {
+    CN: string;
+  };
+}
+
+interface ValidUserResponse {
+  isValidUser: boolean;
+  userid: string;
+}
+
+interface AdminResponse {
+  isAdmin: boolean;
+}
+
+interface BackendState {
+  userType: "admin" | "user" | null;
   isLoading: boolean;
-}>({
-  signIn: () => null,
-  signOut: () => null,
-  session: null,
-  isLoading: false,
+  error: string | null;
+  authType: "mtls" | "jwt" | null;
+  otpVerified: boolean;
+  callsign: string | null;
+  isValidUser: boolean;
+}
+
+interface AuthContextProps {
+  backends: Record<string, BackendState>;
+  addBackend: (
+    name: string,
+    authType: "mtls" | "jwt",
+    token: string,
+  ) => Promise<void>;
+  removeBackend: (name: string) => void;
+  updateBackendState: (name: string, state: Partial<BackendState>) => void;
+}
+
+export const AuthContext = createContext<AuthContextProps>({
+  backends: {},
+  addBackend: async () => {},
+  removeBackend: () => {},
+  updateBackendState: () => {},
 });
 
-// This hook can be used to access the user info.
-export function useSession() {
-  const value = React.useContext(AuthContext);
-  if (process.env.NODE_ENV !== 'production') {
-    if (!value) {
-      throw new Error('useSession must be wrapped in a <SessionProvider />');
-    }
-  }
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const [backends, setBackends] = useState<Record<string, BackendState>>({});
 
-  return value;
-}
+  const addBackend = async (
+    name: string,
+    authType: "mtls" | "jwt",
+    token: string,
+  ) => {
+    const initialBackendState: BackendState = {
+      userType: null,
+      isLoading: true,
+      error: null,
+      authType,
+      otpVerified: false,
+      callsign: null,
+      isValidUser: false,
+    };
 
-export function SessionProvider(props: React.PropsWithChildren) {
-  const [[isLoading, session], setSession] = useStorageState('session');
+    setBackends((prevBackends) => ({
+      ...prevBackends,
+      [name]: initialBackendState,
+    }));
 
-  const signIn = async () => {
     try {
-      const sessionData = await authenticateWithMTLS();
-      setSession(sessionData);
-    } catch (error) {
-      console.error('Failed to sign in', error);
+      const headers = { Authorization: `Bearer ${token}` };
+      const authResponse = await fetch(
+        `https://backend.com/api/v1/check-auth/${authType}`,
+        { headers },
+      );
+
+      if (authResponse.status === 403) {
+        setBackends((prevBackends) => ({
+          ...prevBackends,
+          [name]: {
+            ...initialBackendState,
+            isLoading: false,
+            error: "Forbidden",
+          },
+        }));
+      } else if (authResponse.ok) {
+        const authData = (await authResponse.json()) as AuthResponse;
+        setBackends((prevBackends) => ({
+          ...prevBackends,
+          [name]: {
+            ...prevBackends[name],
+            authType: authData.type,
+            isLoading: false,
+          },
+        }));
+
+        if (authData.type) {
+          const validUserResponse = await fetch(
+            `https://backend.com/api/v1/check-auth/validuser`,
+            { headers },
+          );
+
+          if (validUserResponse.ok) {
+            const validUserData =
+              (await validUserResponse.json()) as ValidUserResponse;
+            setBackends((prevBackends) => ({
+              ...prevBackends,
+              [name]: {
+                ...prevBackends[name],
+                isValidUser: true,
+                callsign: validUserData.userid,
+                userType: "user",
+                isLoading: false,
+              },
+            }));
+
+            const adminResponse = await fetch(
+              `https://backend.com/api/v1/check-auth/validuser/admin`,
+              { headers },
+            );
+
+            if (adminResponse.ok) {
+              const adminData = (await adminResponse.json()) as AdminResponse;
+              setBackends((prevBackends) => ({
+                ...prevBackends,
+                [name]: { ...prevBackends[name], userType: "admin" },
+              }));
+            } else if (adminResponse.status === 403) {
+              setBackends((prevBackends) => ({
+                ...prevBackends,
+                [name]: { ...prevBackends[name], userType: "user" },
+              }));
+            }
+          }
+        }
+      } else {
+        throw new Error(
+          `API response was not ok. Status code: ${authResponse.status}`,
+        );
+      }
+    } catch (err: unknown) {
+      setBackends((prevBackends) => ({
+        ...prevBackends,
+        [name]: {
+          ...prevBackends[name],
+          error: err instanceof Error ? err.message : String(err),
+          isLoading: false,
+        },
+      }));
     }
   };
 
-  const signOut = () => {
-    setSession(null);
-    SecureStore.deleteItemAsync('session');
+  const removeBackend = (name: string) => {
+    setBackends((prevBackends) => {
+      const { [name]: _, ...rest } = prevBackends;
+      return rest;
+    });
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        signIn,
-        signOut,
-        session,
-        isLoading,
-      }}>
-      {props.children}
-    </AuthContext.Provider>
+  const updateBackendState = (name: string, state: Partial<BackendState>) => {
+    setBackends((prevBackends) => ({
+      ...prevBackends,
+      [name]: { ...prevBackends[name], ...state },
+    }));
+  };
+
+  const value = useMemo(
+    () => ({ backends, addBackend, removeBackend, updateBackendState }),
+    [backends],
   );
-}
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};

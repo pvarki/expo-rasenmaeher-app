@@ -4,7 +4,7 @@ import { HelloWave } from "@/src/components/HelloWave";
 import ParallaxScrollView from "@/src/components/ParallaxScrollView";
 import { ThemedText } from "@/src/components/ThemedText";
 import { ThemedView } from "@/src/components/ThemedView";
-import { Link } from 'expo-router';
+import { Link } from "expo-router";
 
 export default function HomeScreen() {
   return (
@@ -50,7 +50,7 @@ export default function HomeScreen() {
           <ThemedText type="defaultSemiBold">app-example</ThemedText>.
         </ThemedText>
         <ThemedText type="subtitle">Step 3: Getdd a fresh start</ThemedText>
-          <Link href="/modal">Present modal</Link>
+        <Link href="/modal">Present modal</Link>
       </ThemedView>
     </ParallaxScrollView>
   );
