@@ -12,12 +12,14 @@ export default function LoginView() {
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <ThemedText
         onPress={() => {
-          addBackend('defaultBackend', 'jwt', 'token').then(() => {
-            router.replace('/');
-          }).catch(error => {
-            console.error('Failed to add backend', error);
-            // Handle error state here
-          });
+          addBackend("defaultBackend", "jwt", "token")
+            .then(() => {
+              router.replace("/");
+            })
+            .catch((error) => {
+              console.error("Failed to add backend", error);
+              // Handle error state here
+            });
         }}
       >
         Kirjaudu sisään

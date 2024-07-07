@@ -28,7 +28,8 @@ export const ProtectedRoute: React.FC<Props> = ({
     return <ActivityIndicator />;
   }
 
-  const { userType, isLoading, authType, isValidUser, callsign, otpVerified } = backend;
+  const { userType, isLoading, authType, isValidUser, callsign, otpVerified } =
+    backend;
 
   if (isLoading) {
     return <ActivityIndicator />;
