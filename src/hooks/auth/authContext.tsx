@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useStorageState } from './useStorageState';
+import * as SecureStore from 'expo-secure-store';
+import { authenticateWithMTLS } from '../mtls/authenticateWithMtls';
 
 const AuthContext = React.createContext<{
   signIn: () => void;
@@ -28,16 +30,25 @@ export function useSession() {
 export function SessionProvider(props: React.PropsWithChildren) {
   const [[isLoading, session], setSession] = useStorageState('session');
 
+  const signIn = async () => {
+    try {
+      const sessionData = await authenticateWithMTLS();
+      setSession(sessionData);
+    } catch (error) {
+      console.error('Failed to sign in', error);
+    }
+  };
+
+  const signOut = () => {
+    setSession(null);
+    SecureStore.deleteItemAsync('session');
+  };
+
   return (
     <AuthContext.Provider
       value={{
-        signIn: () => {
-          // Perform sign-in logic here
-          setSession('xxx');
-        },
-        signOut: () => {
-          setSession(null);
-        },
+        signIn,
+        signOut,
         session,
         isLoading,
       }}>
