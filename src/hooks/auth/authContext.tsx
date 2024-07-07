@@ -38,12 +38,12 @@ interface BackendState {
 interface AuthContextProps {
   backends: Record<string, BackendState>;
   addBackend: (
-    name: string,
+    fqdn: string,
     authType: "mtls" | "jwt",
     token: string,
   ) => Promise<void>;
-  removeBackend: (name: string) => void;
-  updateBackendState: (name: string, state: Partial<BackendState>) => void;
+  removeBackend: (fqdn: string) => void;
+  updateBackendState: (fqdn: string, state: Partial<BackendState>) => void;
 }
 
 export const AuthContext = createContext<AuthContextProps>({
@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [backends, setBackends] = useState<Record<string, BackendState>>({});
 
   const addBackend = async (
-    name: string,
+    fqdn: string,
     authType: "mtls" | "jwt",
     token: string,
   ) => {
@@ -75,20 +75,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
     setBackends((prevBackends) => ({
       ...prevBackends,
-      [name]: initialBackendState,
+      [fqdn]: initialBackendState,
     }));
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const authResponse = await fetch(
-        `https://backend.com/api/v1/check-auth/${authType}`,
+        `https://${fqdn}/api/v1/check-auth/${authType}`,
         { headers },
       );
 
       if (authResponse.status === 403) {
         setBackends((prevBackends) => ({
           ...prevBackends,
-          [name]: {
+          [fqdn]: {
             ...initialBackendState,
             isLoading: false,
             error: "Forbidden",
@@ -98,8 +98,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         const authData = (await authResponse.json()) as AuthResponse;
         setBackends((prevBackends) => ({
           ...prevBackends,
-          [name]: {
-            ...prevBackends[name],
+          [fqdn]: {
+            ...prevBackends[fqdn],
             authType: authData.type,
             isLoading: false,
           },
@@ -107,7 +107,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
         if (authData.type) {
           const validUserResponse = await fetch(
-            `https://backend.com/api/v1/check-auth/validuser`,
+            `https://${fqdn}/api/v1/check-auth/validuser`,
             { headers },
           );
 
@@ -116,8 +116,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
               (await validUserResponse.json()) as ValidUserResponse;
             setBackends((prevBackends) => ({
               ...prevBackends,
-              [name]: {
-                ...prevBackends[name],
+              [fqdn]: {
+                ...prevBackends[fqdn],
                 isValidUser: true,
                 callsign: validUserData.userid,
                 userType: "user",
@@ -126,7 +126,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             }));
 
             const adminResponse = await fetch(
-              `https://backend.com/api/v1/check-auth/validuser/admin`,
+              `https://${fqdn}/api/v1/check-auth/validuser/admin`,
               { headers },
             );
 
@@ -134,12 +134,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
               const adminData = (await adminResponse.json()) as AdminResponse;
               setBackends((prevBackends) => ({
                 ...prevBackends,
-                [name]: { ...prevBackends[name], userType: "admin" },
+                [fqdn]: { ...prevBackends[fqdn], userType: "admin" },
               }));
             } else if (adminResponse.status === 403) {
               setBackends((prevBackends) => ({
                 ...prevBackends,
-                [name]: { ...prevBackends[name], userType: "user" },
+                [fqdn]: { ...prevBackends[fqdn], userType: "user" },
               }));
             }
           }
@@ -152,8 +152,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     } catch (err: unknown) {
       setBackends((prevBackends) => ({
         ...prevBackends,
-        [name]: {
-          ...prevBackends[name],
+        [fqdn]: {
+          ...prevBackends[fqdn],
           error: err instanceof Error ? err.message : String(err),
           isLoading: false,
         },
@@ -161,17 +161,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  const removeBackend = (name: string) => {
+  const removeBackend = (fqdn: string) => {
     setBackends((prevBackends) => {
-      const { [name]: _, ...rest } = prevBackends;
+      const { [fqdn]: _, ...rest } = prevBackends;
       return rest;
     });
   };
 
-  const updateBackendState = (name: string, state: Partial<BackendState>) => {
+  const updateBackendState = (fqdn: string, state: Partial<BackendState>) => {
     setBackends((prevBackends) => ({
       ...prevBackends,
-      [name]: { ...prevBackends[name], ...state },
+      [fqdn]: { ...prevBackends[fqdn], ...state },
     }));
   };
 
