@@ -1,10 +1,15 @@
 import React, { useState } from "react";
-import { View, TextInput, StyleSheet, Platform, Image } from "react-native";
+import { View, TextInput, StyleSheet, Platform, Image, TouchableOpacity, Text, Alert } from "react-native";
 import { useAuth } from "../../hooks/auth/useAuth";
 import { ThemedText } from "../../components/ThemedText";
 import { ThemedView } from "../../components/ThemedView";
 import { Link, useRouter } from "expo-router";
 import ParallaxScrollView from "../../components/ParallaxScrollView";
+import { generateCA, generateCSR, signCSR, installCertificate } from "../../hooks/mtls/uglyPoc"; // Update the import path if needed
+import { NativeModules } from 'react-native';
+import forge from 'node-forge';
+
+const { KeyChainModule } = NativeModules;
 
 export default function LoginView() {
   const { addBackend } = useAuth();
@@ -22,6 +27,56 @@ export default function LoginView() {
         console.error("Failed to add backend", error);
         // Handle error state here
       });
+  };
+
+  const handleInstallCert = async () => {
+    try {
+      const ca = generateCA();
+      const { privateKey, csrPem } = generateCSR('MyClient');
+      const signedCertPem = signCSR(csrPem, ca.caCert, ca.caPrivateKey);
+      await installCertificate(signedCertPem, forge.pki.privateKeyToPem(privateKey));
+      Alert.alert("Success", "Certificate installed successfully!");
+    } catch (error) {
+      console.error("Failed to install certificate", error);
+      Alert.alert("Error", "Failed to install certificate");
+    }
+  };
+
+  const handleTestCertAccess = async () => {
+    try {
+      const alias = 'MyClientCert';
+
+      KeyChainModule.getCertificateChain(alias)
+        .then(certChain => {
+          if (certChain) {
+            console.log('Certificate Chain:', certChain);
+            Alert.alert("Success", "Certificate access successful!");
+          } else {
+            Alert.alert("Error", "Failed to access certificate chain");
+          }
+        })
+        .catch(error => {
+          console.error("Failed to access certificate chain", error);
+          Alert.alert("Error", "Failed to access certificate chain");
+        });
+
+      KeyChainModule.getPrivateKey(alias)
+        .then(privateKey => {
+          if (privateKey) {
+            console.log('Private Key:', privateKey);
+            Alert.alert("Success", "Private key access successful!");
+          } else {
+            Alert.alert("Error", "Failed to access private key");
+          }
+        })
+        .catch(error => {
+          console.error("Failed to access private key", error);
+          Alert.alert("Error", "Failed to access private key");
+        });
+    } catch (error) {
+      console.error("Failed to access certificate", error);
+      Alert.alert("Error", "Failed to access certificate");
+    }
   };
 
   return (
@@ -49,6 +104,14 @@ export default function LoginView() {
           <ThemedText onPress={handleLogin} style={styles.loginButton}>
             Login
           </ThemedText>
+        </ThemedView>
+        <ThemedView style={styles.buttonContainer}>
+          <TouchableOpacity onPress={handleInstallCert} style={styles.actionButton}>
+            <Text style={styles.buttonText}>Install Certificate</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleTestCertAccess} style={styles.actionButton}>
+            <Text style={styles.buttonText}>Test Certificate Access</Text>
+          </TouchableOpacity>
         </ThemedView>
         <ThemedView style={styles.instructionsContainer}>
           <ThemedText type="subtitle">Instructions</ThemedText>
@@ -98,6 +161,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#007BFF",
     color: "#FFF",
     borderRadius: 4,
+  },
+  buttonContainer: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  actionButton: {
+    backgroundColor: "#007BFF",
+    padding: 10,
+    borderRadius: 4,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  buttonText: {
+    color: "#FFF",
   },
   instructionsContainer: {
     gap: 8,
