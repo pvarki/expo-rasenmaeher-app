@@ -19,14 +19,18 @@
       "adaptiveIcon": {
         "foregroundImage": "src/assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.pvarki.rasenmaeher"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "src/assets/images/favicon.png"
     },
-    "plugins": ["expo-router", "expo-localization"],
+    "plugins": [
+      "expo-router",
+      "expo-localization"
+    ],
     "experiments": {
       "typedRoutes": true
     }

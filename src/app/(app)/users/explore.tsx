@@ -101,7 +101,7 @@ export default function TabTwoScreen() {
               <ThemedText type="defaultSemiBold">
                 components/ParallaxScrollView.tsx
               </ThemedText>{" "}
-              component provides a parallax effect for the header image.
+              component provides a paffrallax effect for the header image.
             </ThemedText>
           ),
         })}
